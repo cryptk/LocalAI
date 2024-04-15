@@ -162,3 +162,23 @@ require (
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/tools v0.19.0 // indirect
 )
+
+replace github.com/go-skynet/go-bert.cpp => /home/cryptk/Documents/sourcecode/LocalAI/sources/go-bert.cpp
+
+replace github.com/ggerganov/whisper.cpp => /home/cryptk/Documents/sourcecode/LocalAI/sources/whisper.cpp
+
+replace github.com/go-skynet/go-llama.cpp => /home/cryptk/Documents/sourcecode/LocalAI/sources/go-llama.cpp
+
+replace github.com/nomic-ai/gpt4all => /home/cryptk/Documents/sourcecode/LocalAI/sources/gpt4all
+
+replace github.com/donomii/go-rwkv.cpp => /home/cryptk/Documents/sourcecode/LocalAI/sources/go-rwkv.cpp
+
+replace github.com/M0Rf30/go-tiny-dream => /home/cryptk/Documents/sourcecode/LocalAI/sources/go-tiny-dream
+
+replace github.com/mudler/go-stable-diffusion => /home/cryptk/Documents/sourcecode/LocalAI/sources/go-stable-diffusion
+
+replace github.com/mudler/go-piper => /home/cryptk/Documents/sourcecode/LocalAI/sources/go-piper
+
+replace github.com/ggerganov/whisper.cpp/bindings/go => /home/cryptk/Documents/sourcecode/LocalAI/sources/whisper.cpp/bindings/go
+
+replace github.com/nomic-ai/gpt4all/gpt4all-bindings/golang => /home/cryptk/Documents/sourcecode/LocalAI/sources/gpt4all/gpt4all-bindings/golang

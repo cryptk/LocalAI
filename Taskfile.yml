@@ -1,0 +1,151 @@
+version: '3'
+
+output:
+  group:
+    begin: '::group::{{.TASK}}'
+    end: '::endgroup::'
+
+vars:
+  GO_TAGS: ""
+  BUILD_TYPE: ""
+  IMAGE_TYPE: "core"
+  BASE_IMAGE: "ubuntu:22.04"
+
+  CGO_LDFLAGS: ""
+  LD_FLAGS: ""
+
+  INTERNAL_LD_FLAGS: '{{.LD_FLAGS}} -X "github.com/go-skynet/LocalAI/internal.Version={{.VERSION}}" -X "github.com/go-skynet/LocalAI/internal.Commit={{.COMMIT}}"'
+
+  VERSION:
+    sh: git describe --always --tags || echo "dev"
+  COMMIT:
+    sh: git rev-parse HEAD
+
+  BERT_VERSION: 6abe312cded14042f6b7c3cd8edf082713334a4d
+  GOLLAMA_VERSION: 2b57a8ae43e4699d3dc5d1496a1ccd42922993be
+  PIPER_VERSION: 9d0100873a7dbb0824dfea40e8cec70a1b110759
+  GPT4ALL_VERSION: 27a8b020c36b0df8f8b82a252d261cda47cf44b8
+  RWKV_VERSION: 661e7ae26d442f5cfebd2a0881b44e8c55949ec6
+  STABLEDIFFUSION_VERSION: 362df9da29f882dbf09ade61972d16a1f53c3485
+  TINYDREAM_VERSION: 22a12a4bc0ac5455856f28f3b771331a551a4293
+  WHISPER_CPP_VERSION: 8f253ef3af1c62c04316ba4afa7145fc4d701a8c
+tasks:
+
+  build:
+    deps:
+      - prepare-sources
+      - build-grpcs
+    cmds:
+      - echo "I am going to write a file named 'output.txt' now."
+      - echo "hello" > output.txt
+    generates:
+      - output.txt
+  
+  backend-assets-bert-embeddings:
+    cmds:
+      - CGO_LDFLAGS="{{.CGO_LDFLAGS}}" C_INCLUDE_PATH={{.ROOT_DIR}}/sources/go-bert LIBRARY_PATH={{.ROOT_DIR}}/sources/go-bert \
+        go build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/bert-embeddings ./backend/go/llm/bert/
+
+  prepare-sources:
+    deps:
+      - for:
+          - "https://github.com/go-skynet/go-bert.cpp,{{.BERT_VERSION}}"
+          - "https://github.com/go-skynet/go-llama.cpp,{{.GOLLAMA_VERSION}}"
+          - "https://github.com/mudler/go-piper,{{.PIPER_VERSION}}"
+          - "https://github.com/nomic-ai/gpt4all,{{.GPT4ALL_VERSION}}"
+          - "https://github.com/donomii/go-rwkv.cpp,{{.RWKV_VERSION}}"
+          - "https://github.com/mudler/go-stable-diffusion,{{.STABLEDIFFUSION_VERSION}}"
+          - "https://github.com/M0Rf30/go-tiny-dream,{{.TINYDREAM_VERSION}}"
+          - "https://github.com/ggerganov/whisper.cpp,{{.WHISPER_CPP_VERSION}}"
+        task: prepare-source
+        vars:
+          SOURCE: '{{ splitList "," .ITEM | first}}'
+          VERSION: '{{ splitList "," .ITEM | last}}'
+    cmds:
+      - task: go-mod-replace
+        vars:
+          SOURCE: "github.com/ggerganov/whisper.cpp/bindings/go"
+          TARGET: "sources/whisper.cpp/bindings/go"
+      - task: go-mod-replace
+        vars:
+          SOURCE: github.com/nomic-ai/gpt4all/gpt4all-bindings/golang
+          TARGET: "sources/gpt4all/gpt4all-bindings/golang"
+      - go mod download
+
+  clean:
+    deps:
+      - task: clean-sources
+
+  clean-sources:
+    cmds:
+      - rm -rf {{.ROOT_DIR}}/sources
+      - for:
+        - github.com/donomii/go-rwkv.cpp
+        - github.com/ggerganov/whisper.cpp
+        - github.com/ggerganov/whisper.cpp/bindings/go
+        - github.com/go-skynet/go-bert.cpp
+        - github.com/M0Rf30/go-tiny-dream
+        - github.com/mudler/go-piper
+        - github.com/mudler/go-stable-diffusion
+        - github.com/nomic-ai/gpt4all
+        - github.com/nomic-ai/gpt4all/gpt4all-bindings/golang
+        - github.com/go-skynet/go-llama.cpp
+        task: go-mod-dropreplace
+        vars:
+          SOURCE: "{{.ITEM}}"
+
+
+
+
+# INTERNAL TASKS BELOW
+
+  get-source:
+    internal: true
+    requires:
+      vars: [URL, DESTINATION, VERSION]
+    label: "get-source-{{.URL}}"
+    status:
+      - test -d {{.DESTINATION}}
+    cmds:
+      - git clone --recurse-submodules --jobs 4 {{.URL}} {{.DESTINATION}}
+      - cd {{.DESTINATION}} && git checkout -b build {{.VERSION}} && git submodule update --init --recursive --depth 1
+
+  go-mod-replace:
+    internal: true
+    label: "go-mod-replace-{{.SOURCE}}"
+    requires:
+      vars:
+        - SOURCE
+        - TARGET
+    cmds:
+      - go mod edit -replace {{.SOURCE}}={{.ROOT_DIR}}/{{.TARGET}}
+    status:
+      - grep 'replace {{.SOURCE}}' {{.ROOT_DIR}}/go.mod
+
+  go-mod-dropreplace:
+    internal: true
+    label: "go-mod-dropreplace-{{.SOURCE}}"
+    requires:
+      vars:
+        - SOURCE
+    cmds:
+      - go mod edit -dropreplace {{.SOURCE}}
+    status:
+      - "! grep 'replace {{.SOURCE}}' {{.ROOT_DIR}}/go.mod"
+
+  prepare-source:
+    internal: true
+    requires:
+      vars:
+        - SOURCE
+        - VERSION
+    cmds:
+      - task: get-source
+        vars:
+          URL: "{{.SOURCE}}"
+          DESTINATION: 'sources/{{ splitList "/" .SOURCE | last }}'
+          VERSION: "{{.VERSION}}"
+      - task: go-mod-replace
+        vars:
+          SOURCE: "{{(urlParse .SOURCE).host}}{{(urlParse .SOURCE).path}}"
+          TARGET: 'sources/{{ splitList "/" .SOURCE | last }}'
