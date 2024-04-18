@@ -21,14 +21,17 @@ jobs:
             runs-on: 'ubuntu-latest'
             platforms: 'linux/amd64'
             makeflags: "--jobs=3 --output-sync=target"
+            tag: grpc-ubuntu-22-04-linux-amd64
           - base-image: rocm/dev-ubuntu-22.04:6.0-complete
             runs-on: 'ubuntu-latest'
             platforms: 'linux/amd64'
             makeflags: "--jobs=3 --output-sync=target"
+            tag: grpc-rocm-6-0-ubuntu-22-04-linux-amd64
           - base-image: intel/oneapi-basekit:2024.0.1-devel-ubuntu22.04
             runs-on: 'ubuntu-latest'
             platforms: 'linux/amd64'
             makeflags: "--jobs=3 --output-sync=target"
+            tag: grpc-oneapi-2024-0-1-ubuntu-22-04-linux-amd64
     runs-on: ${{matrix.runs-on}}
     steps:
       - name: Set up QEMU
@@ -66,4 +69,4 @@ jobs:
           target: grpc
           platforms: ${{ matrix.platforms }}
           push: false
-          tags: grpc-${{matrix.base-image}}-${{matrix.platforms}}
+          tags: ${{matrix.tag}}
