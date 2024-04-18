@@ -56,6 +56,9 @@ jobs:
       #     username: ${{ secrets.quayUsername }}
       #     password: ${{ secrets.quayPassword }}
 
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Cache GRPC
         uses: docker/build-push-action@v5
         with:
