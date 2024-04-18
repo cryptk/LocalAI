@@ -65,8 +65,7 @@ jobs:
             GRPC_VERSION=v1.58.0
           context: .
           file: ./Dockerfile
-          cache-to: type=registry,ignore-error=true
+          cache-to: type=registry,ref=docker.io/cryptk/local-ai:${{matrix.tag}}
           target: grpc
           platforms: ${{ matrix.platforms }}
           push: false
-          tags: ${{matrix.tag}}
