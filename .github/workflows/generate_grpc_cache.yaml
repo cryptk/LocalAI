@@ -20,15 +20,15 @@ jobs:
           - base-image: ubuntu:22.04
             runs-on: 'ubuntu-latest'
             platforms: 'linux/amd64'
-            makeflags: "--jobs=3 --output-sync=target"
+            makeflags: "--jobs=4 --output-sync=target"
           - base-image: rocm/dev-ubuntu-22.04:6.0-complete
             runs-on: 'ubuntu-latest'
             platforms: 'linux/amd64'
-            makeflags: "--jobs=3 --output-sync=target"
+            makeflags: "--jobs=4 --output-sync=target"
           - base-image: intel/oneapi-basekit:2024.0.1-devel-ubuntu22.04
             runs-on: 'ubuntu-latest'
             platforms: 'linux/amd64'
-            makeflags: "--jobs=3 --output-sync=target"
+            makeflags: "--jobs=4 --output-sync=target"
     runs-on: ${{matrix.runs-on}}
     steps:
       - name: Set up QEMU
