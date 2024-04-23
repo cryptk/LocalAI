@@ -1,0 +1,4 @@
+development:
+  dialect: sqlite3
+  datasource: storage/localai.db
+  dir: core/database/migrations/sqlite3

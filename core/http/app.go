@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-skynet/LocalAI/pkg/utils"
 
+	"github.com/go-skynet/LocalAI/core/database"
 	"github.com/go-skynet/LocalAI/core/http/endpoints/localai"
 	"github.com/go-skynet/LocalAI/core/http/endpoints/openai"
 	"github.com/go-skynet/LocalAI/core/http/routes"
@@ -57,7 +58,7 @@ func readAuthHeader(c *fiber.Ctx) string {
 // @in header
 // @name Authorization
 
-func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) (*fiber.App, error) {
+func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, db *database.DB, appConfig *config.ApplicationConfig) (*fiber.App, error) {
 	// Return errors as JSON responses
 	app := fiber.New(fiber.Config{
 		Views:     renderEngine(),

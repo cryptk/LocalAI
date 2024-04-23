@@ -25,6 +25,8 @@ type RunCMD struct {
 	LocalaiConfigDirPollInterval time.Duration `env:"LOCALAI_CONFIG_DIR_POLL_INTERVAL" help:"Typically the config path picks up changes automatically, but if your system has broken fsnotify events, set this to an interval to poll the LocalAI Config Dir (example: 1m)" group:"storage"`
 	// The alias on this option is there to preserve functionality with the old `--config-file` parameter
 	ModelsConfigFile string `env:"LOCALAI_MODELS_CONFIG_FILE,CONFIG_FILE" aliases:"config-file" help:"YAML file containing a list of model backend configs" group:"storage"`
+	EnableDB         bool   `hidden:"" env:"LOCALAI_ENABLE_DB" default:"false" help:"EXPERIMENTAL! Enable the database system" group:"storage"`
+	DBPath           string `hidden:"" env:"LOCALAI_DB_PATH" type:"path" help:"path to the sqlite database file used for LocalAI" default:"storage/database/localai.db" group:"storage"`
 
 	Galleries           string   `env:"LOCALAI_GALLERIES,GALLERIES" help:"JSON list of galleries" group:"models" default:"${galleries}"`
 	AutoloadGalleries   bool     `env:"LOCALAI_AUTOLOAD_GALLERIES,AUTOLOAD_GALLERIES" group:"models"`
@@ -57,6 +59,8 @@ type RunCMD struct {
 func (r *RunCMD) Run(ctx *Context) error {
 	opts := []config.AppOption{
 		config.WithConfigFile(r.ModelsConfigFile),
+		config.WithEnableDB(r.EnableDB),
+		config.WithDBPath(r.DBPath),
 		config.WithJSONStringPreload(r.PreloadModels),
 		config.WithYAMLConfigPreload(r.PreloadModelsConfig),
 		config.WithModelPath(r.ModelsPath),
@@ -126,16 +130,16 @@ func (r *RunCMD) Run(ctx *Context) error {
 	}
 
 	if r.PreloadBackendOnly {
-		_, _, _, err := startup.Startup(opts...)
+		_, _, _, _, err := startup.Startup(opts...)
 		return err
 	}
 
-	cl, ml, options, err := startup.Startup(opts...)
+	cl, ml, options, db, err := startup.Startup(opts...)
 	if err != nil {
 		return fmt.Errorf("failed basic startup tasks with error %s", err.Error())
 	}
 
-	appHTTP, err := http.App(cl, ml, options)
+	appHTTP, err := http.App(cl, ml, db, options)
 	if err != nil {
 		log.Error().Err(err).Msg("error during HTTP App construction")
 		return err

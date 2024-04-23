@@ -13,6 +13,8 @@ import (
 type ApplicationConfig struct {
 	Context                             context.Context
 	ConfigFile                          string
+	EnableDB                            bool
+	DBPath                              string
 	ModelPath                           string
 	UploadLimitMB, Threads, ContextSize int
 	DisableWelcomePage                  bool
@@ -202,6 +204,18 @@ func WithJSONStringPreload(configFile string) AppOption {
 func WithConfigFile(configFile string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.ConfigFile = configFile
+	}
+}
+
+func WithEnableDB(enableDB bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.EnableDB = enableDB
+	}
+}
+
+func WithDBPath(dbPath string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.DBPath = dbPath
 	}
 }
 

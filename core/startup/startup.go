@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/go-skynet/LocalAI/core/config"
+	"github.com/go-skynet/LocalAI/core/database"
 	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/internal"
 	"github.com/go-skynet/LocalAI/pkg/assets"
@@ -13,36 +14,45 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.ModelLoader, *config.ApplicationConfig, error) {
+func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.ModelLoader, *config.ApplicationConfig, *database.DB, error) {
+	var err error
 	options := config.NewApplicationConfig(opts...)
 
 	log.Info().Msgf("Starting LocalAI using %d threads, with models path: %s", options.Threads, options.ModelPath)
 	log.Info().Msgf("LocalAI version: %s", internal.PrintableVersion())
 
+	var db *database.DB
+	if options.EnableDB {
+		db, err = database.Open(options)
+		if err != nil {
+			log.Fatal().Err(err).Msg("unable to initialize database connection")
+		}
+	}
+
 	// Make sure directories exists
 	if options.ModelPath == "" {
-		return nil, nil, nil, fmt.Errorf("options.ModelPath cannot be empty")
+		return nil, nil, nil, nil, fmt.Errorf("options.ModelPath cannot be empty")
 	}
-	err := os.MkdirAll(options.ModelPath, 0755)
+	err = os.MkdirAll(options.ModelPath, 0755)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("unable to create ModelPath: %q", err)
+		return nil, nil, nil, nil, fmt.Errorf("unable to create ModelPath: %q", err)
 	}
 	if options.ImageDir != "" {
 		err := os.MkdirAll(options.ImageDir, 0755)
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("unable to create ImageDir: %q", err)
+			return nil, nil, nil, nil, fmt.Errorf("unable to create ImageDir: %q", err)
 		}
 	}
 	if options.AudioDir != "" {
 		err := os.MkdirAll(options.AudioDir, 0755)
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("unable to create AudioDir: %q", err)
+			return nil, nil, nil, nil, fmt.Errorf("unable to create AudioDir: %q", err)
 		}
 	}
 	if options.UploadDir != "" {
 		err := os.MkdirAll(options.UploadDir, 0755)
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("unable to create UploadDir: %q", err)
+			return nil, nil, nil, nil, fmt.Errorf("unable to create UploadDir: %q", err)
 		}
 	}
 
@@ -70,13 +80,13 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 
 	if options.PreloadJSONModels != "" {
 		if err := services.ApplyGalleryFromString(options.ModelPath, options.PreloadJSONModels, cl, options.Galleries); err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, nil, err
 		}
 	}
 
 	if options.PreloadModelsFromPath != "" {
 		if err := services.ApplyGalleryFromFile(options.ModelPath, options.PreloadModelsFromPath, cl, options.Galleries); err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, nil, err
 		}
 	}
 
@@ -125,5 +135,5 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 	configHandler.Watch()
 
 	log.Info().Msg("core/startup process completed!")
-	return cl, ml, options, nil
+	return cl, ml, options, db, nil
 }
