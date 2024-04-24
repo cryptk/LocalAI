@@ -222,6 +222,7 @@ ENV PIP_CACHE_PURGE=true
 
 # Add FFmpeg
 RUN if [ "${FFMPEG}" = "true" ]; then \
+        apt-get update && \
         apt-get install -y \
             ffmpeg && \
         apt-get clean && \
