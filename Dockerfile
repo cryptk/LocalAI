@@ -5,7 +5,7 @@ ARG GRPC_BASE_IMAGE=${BASE_IMAGE}
 # It is important for caching that the requirements-base target remain exactly the same across as many builds as possible.
 # If you need to add something that is specific to a BUILD_TYPE etc, add it to the requirements-core target instead
 # requirements-base should only have things that apply to ALL builds
-FROM ${BASE_IMAGE} AS requirements-base
+FROM ${BASE_IMAGE} AS requirements-core
 
 USER root
 
@@ -69,7 +69,35 @@ RUN test -n "$TARGETARCH" \
 ###################################
 ###################################
 
-FROM requirements-base AS requirements-core
+FROM requirements-core AS requirements-extras
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends gpg && \
+    curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmor > conda.gpg && \
+    install -o root -g root -m 644 conda.gpg /usr/share/keyrings/conda-archive-keyring.gpg && \
+    gpg --keyring /usr/share/keyrings/conda-archive-keyring.gpg --no-default-keyring --fingerprint 34161F5BF5EB1D4BFBBB8F0A8AEB4F8B29D82806 && \
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" > /etc/apt/sources.list.d/conda.list && \
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" | tee -a /etc/apt/sources.list.d/conda.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        conda && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        espeak-ng \
+        espeak && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+###################################
+###################################
+
+FROM requirements-${IMAGE_TYPE} AS requirements-drivers
 
 ARG BUILD_TYPE
 ARG CUDA_MAJOR_VERSION=11
@@ -111,34 +139,6 @@ RUN if [ "${BUILD_TYPE}" = "clblas" ]; then \
 ###################################
 ###################################
 
-FROM requirements-core AS requirements-extras
-
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends gpg && \
-    curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmor > conda.gpg && \
-    install -o root -g root -m 644 conda.gpg /usr/share/keyrings/conda-archive-keyring.gpg && \
-    gpg --keyring /usr/share/keyrings/conda-archive-keyring.gpg --no-default-keyring --fingerprint 34161F5BF5EB1D4BFBBB8F0A8AEB4F8B29D82806 && \
-    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" > /etc/apt/sources.list.d/conda.list && \
-    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" | tee -a /etc/apt/sources.list.d/conda.list && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends \
-        conda && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
-ENV PATH="/root/.cargo/bin:${PATH}"
-
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        espeak-ng \
-        espeak && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
-###################################
-###################################
-
 FROM ${GRPC_BASE_IMAGE} AS grpc
 
 # This is a bit of a hack, but it's required in order to be able to effectively cache this layer in CI
@@ -172,7 +172,7 @@ RUN git clone --recurse-submodules --jobs 4 -b ${GRPC_VERSION} --depth 1 --shall
 ###################################
 ###################################
 
-FROM requirements-${IMAGE_TYPE} AS builder
+FROM requirements-drivers AS builder
 
 ARG GO_TAGS="stablediffusion tts"
 ARG GRPC_BACKENDS
@@ -226,7 +226,7 @@ RUN if [ ! -d "/build/sources/go-piper/piper-phonemize/pi/lib/" ]; then \
 ###################################
 ###################################
 
-FROM requirements-${IMAGE_TYPE}
+FROM requirements-drivers
 
 ARG FFMPEG
 ARG BUILD_TYPE
