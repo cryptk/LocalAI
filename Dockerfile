@@ -2,32 +2,29 @@ ARG IMAGE_TYPE=extras
 ARG BASE_IMAGE=ubuntu:22.04
 ARG GRPC_BASE_IMAGE=${BASE_IMAGE}
 
-# extras or core
-FROM ${BASE_IMAGE} AS requirements-core
+# It is important for caching that the requirements-base target remain exactly the same across as many builds as possible.
+# If you need to add something that is specific to a BUILD_TYPE etc, add it to the requirements-core target instead
+# requirements-base should only have things that apply to ALL builds
+FROM ${BASE_IMAGE} AS requirements-base
 
 USER root
 
 ARG GO_VERSION=1.21.7
-ARG BUILD_TYPE
-ARG CUDA_MAJOR_VERSION=11
-ARG CUDA_MINOR_VERSION=7
 ARG TARGETARCH
 ARG TARGETVARIANT
 
-ENV BUILD_TYPE=${BUILD_TYPE}
 ENV DEBIAN_FRONTEND=noninteractive
-ENV EXTERNAL_GRPC_BACKENDS="coqui:/build/backend/python/coqui/run.sh,huggingface-embeddings:/build/backend/python/sentencetransformers/run.sh,petals:/build/backend/python/petals/run.sh,transformers:/build/backend/python/transformers/run.sh,sentencetransformers:/build/backend/python/sentencetransformers/run.sh,rerankers:/build/backend/python/rerankers/run.sh,autogptq:/build/backend/python/autogptq/run.sh,bark:/build/backend/python/bark/run.sh,diffusers:/build/backend/python/diffusers/run.sh,exllama:/build/backend/python/exllama/run.sh,vall-e-x:/build/backend/python/vall-e-x/run.sh,vllm:/build/backend/python/vllm/run.sh,mamba:/build/backend/python/mamba/run.sh,exllama2:/build/backend/python/exllama2/run.sh,transformers-musicgen:/build/backend/python/transformers-musicgen/run.sh,parler-tts:/build/backend/python/parler-tts/run.sh"
-
-ARG GO_TAGS="stablediffusion tinydream tts"
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         ca-certificates \
         curl \
         python3-pip \
+        python-is-python3 \
         unzip && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* && \
+    pip install --upgrade pip
 
 # Install Go
 RUN curl -L -s https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz | tar -C /usr/local -xz
@@ -44,27 +41,8 @@ COPY --chmod=644 custom-ca-certs/* /usr/local/share/ca-certificates/
 RUN update-ca-certificates
 
 # Use the variables in subsequent instructions
-RUN echo "Target Architecture: $TARGETARCH"
-RUN echo "Target Variant: $TARGETVARIANT"
-
-# CuBLAS requirements
-RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
-        apt-get update && \
-        apt-get install -y  --no-install-recommends \
-            software-properties-common && \
-        curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb && \
-        dpkg -i cuda-keyring_1.1-1_all.deb && \
-        rm -f cuda-keyring_1.1-1_all.deb && \
-        apt-get update && \
-        apt-get install -y --no-install-recommends \
-            cuda-nvcc-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
-            libcurand-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
-            libcublas-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
-            libcusparse-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
-            libcusolver-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} && \
-        apt-get clean && \
-        rm -rf /var/lib/apt/lists/* \
-    ; fi
+RUN echo "Target Architecture: ${TARGETARCH}"
+RUN echo "Target Variant: ${TARGETVARIANT}"
 
 # Cuda
 ENV PATH /usr/local/cuda/bin:${PATH}
@@ -91,6 +69,48 @@ RUN test -n "$TARGETARCH" \
 ###################################
 ###################################
 
+FROM requirements-base AS requirements-core
+
+ARG BUILD_TYPE
+ARG CUDA_MAJOR_VERSION=11
+ARG CUDA_MINOR_VERSION=7
+
+ENV BUILD_TYPE=${BUILD_TYPE}
+ENV EXTERNAL_GRPC_BACKENDS="coqui:/build/backend/python/coqui/run.sh,huggingface-embeddings:/build/backend/python/sentencetransformers/run.sh,petals:/build/backend/python/petals/run.sh,transformers:/build/backend/python/transformers/run.sh,sentencetransformers:/build/backend/python/sentencetransformers/run.sh,rerankers:/build/backend/python/rerankers/run.sh,autogptq:/build/backend/python/autogptq/run.sh,bark:/build/backend/python/bark/run.sh,diffusers:/build/backend/python/diffusers/run.sh,exllama:/build/backend/python/exllama/run.sh,vall-e-x:/build/backend/python/vall-e-x/run.sh,vllm:/build/backend/python/vllm/run.sh,mamba:/build/backend/python/mamba/run.sh,exllama2:/build/backend/python/exllama2/run.sh,transformers-musicgen:/build/backend/python/transformers-musicgen/run.sh,parler-tts:/build/backend/python/parler-tts/run.sh"
+
+ARG GO_TAGS="stablediffusion tinydream tts"
+
+# CuBLAS requirements
+RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
+        apt-get update && \
+        apt-get install -y  --no-install-recommends \
+            software-properties-common && \
+        curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb && \
+        dpkg -i cuda-keyring_1.1-1_all.deb && \
+        rm -f cuda-keyring_1.1-1_all.deb && \
+        apt-get update && \
+        apt-get install -y --no-install-recommends \
+            cuda-nvcc-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+            libcurand-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+            libcublas-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+            libcusparse-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+            libcusolver-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/* \
+    ; fi
+
+# If we are building with clblas support, we need the libraries for the builds
+RUN if [ "${BUILD_TYPE}" = "clblas" ]; then \
+        apt-get update && \
+        apt-get install -y --no-install-recommends \
+            libclblast-dev && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/* \
+    ; fi
+
+###################################
+###################################
+
 FROM requirements-core AS requirements-extras
 
 RUN apt-get update && \
@@ -107,12 +127,6 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 ENV PATH="/root/.cargo/bin:${PATH}"
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        python3-pip && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
-    pip install --upgrade pip
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 RUN apt-get update && \
@@ -121,10 +135,6 @@ RUN apt-get update && \
         espeak && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
-
-RUN if [ ! -e /usr/bin/python ]; then \
-	    ln -s /usr/bin/python3 /usr/bin/python \
-    ; fi
 
 ###################################
 ###################################
@@ -191,15 +201,6 @@ RUN apt-get update && \
 
 RUN make prepare
 
-# If we are building with clblas support, we need the libraries for the builds
-RUN if [ "${BUILD_TYPE}" = "clblas" ]; then \
-        apt-get update && \
-        apt-get install -y --no-install-recommends \
-            libclblast-dev && \
-        apt-get clean && \
-        rm -rf /var/lib/apt/lists/* \
-    ; fi
-
 # We need protoc installed, and the version in 22.04 is too old.  We will create one as part installing the GRPC build below
 # but that will also being in a newer version of absl which stablediffusion cannot compile with.  This version of protoc is only
 # here so that we can generate the grpc code for the stablediffusion build
@@ -249,15 +250,6 @@ RUN if [ "${FFMPEG}" = "true" ]; then \
         apt-get update && \
         apt-get install -y --no-install-recommends \
             ffmpeg && \
-        apt-get clean && \
-        rm -rf /var/lib/apt/lists/* \
-    ; fi
-
-# Add OpenCL
-RUN if [ "${BUILD_TYPE}" = "clblas" ]; then \
-        apt-get update && \
-        apt-get install -y --no-install-recommends \
-            libclblast1 && \
         apt-get clean && \
         rm -rf /var/lib/apt/lists/* \
     ; fi
