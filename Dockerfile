@@ -2,9 +2,9 @@ ARG IMAGE_TYPE=extras
 ARG BASE_IMAGE=ubuntu:22.04
 ARG GRPC_BASE_IMAGE=${BASE_IMAGE}
 
-# It is important for caching that the requirements-base target remain exactly the same across as many builds as possible.
-# If you need to add something that is specific to a BUILD_TYPE etc, add it to the requirements-core target instead
-# requirements-base should only have things that apply to ALL builds
+# It is important for caching that the requirements-core and requirements-extras targets remain exactly the same across as many builds as possible.
+# If you need to add something that is specific to a BUILD_TYPE etc, add it to the requirements-droves target instead
+# requirements-core should only have things that apply to ALL builds
 FROM ${BASE_IMAGE} AS requirements-core
 
 USER root
@@ -69,6 +69,9 @@ RUN test -n "$TARGETARCH" \
 ###################################
 ###################################
 
+# It is important for caching that the requirements-core and requirements-extras targets remain exactly the same across as many builds as possible.
+# If you need to add something that is specific to a BUILD_TYPE etc, add it to the requirements-droves target instead
+# requirements-extras should only have things that apply to ALL IMAGE_TYPE=extras builds
 FROM requirements-core AS requirements-extras
 
 RUN apt-get update && \
@@ -97,6 +100,7 @@ RUN apt-get update && \
 ###################################
 ###################################
 
+# items that are specific a a BUILD_TYPE should only be placed in this target
 FROM requirements-${IMAGE_TYPE} AS requirements-drivers
 
 ARG BUILD_TYPE

@@ -4,6 +4,10 @@ on:
   # While the cache will build on every push to master, this will only rebuild the cache if something about the Dockerfile has changed.
   # The workflow_dispatch and schedule triggers will recreate the cache no matter what, and this allows us to keep our packages/dependencies up to date.
   workflow_dispatch:
+  schedule:
+    # Every 2 weeks. 4:15AM on the 7th and 22nd may seem like an odd choice, the goal is to run our cron during times when GitHub Actions is otherwise not doing a lot
+    # If a scheduled workflow happens while the GHA infra is particularly busy, it could be delayed, or worst-case, cancelled completely.
+    - cron: "15 4 7,22 * *"
   push:
     branches:
       - master
