@@ -1,7 +1,12 @@
 name: 'generate and publish docker caches'
 
 on:
+  # While the cache will build on every push to master, this will only rebuild the cache if something about the Dockerfile has changed.
+  # The workflow_dispatch and schedule triggers will recreate the cache no matter what, and this allows us to keep our packages/dependencies up to date.
   workflow_dispatch:
+  schedule:
+    # Every 2 weeks
+    - cron: "30 4 1,15 * *"
   push:
     branches:
       - master
@@ -87,8 +92,8 @@ jobs:
           context: .
           file: ./Dockerfile
           cache-to: type=gha,ignore-error=true
-          cache-from: type=gha
-          target: requirements-base
+          cache-from: ${{ github.event_name == 'push' && 'type=gha' || '' }}
+          target: requirements-core
           platforms: ${{ matrix.platforms }}
           push: false
 
@@ -102,8 +107,8 @@ jobs:
           context: .
           file: ./Dockerfile
           cache-to: type=gha,ignore-error=true
-          cache-from: type=gha
-          target: requirements-base
+          cache-from: ${{ github.event_name == 'push' && 'type=gha' || '' }}
+          target: requirements-extras
           platforms: ${{ matrix.platforms }}
           push: false
 
@@ -121,7 +126,7 @@ jobs:
           context: .
           file: ./Dockerfile
           cache-to: type=gha,ignore-error=true
-          cache-from: type=gha
+          cache-from: ${{ github.event_name == 'push' && 'type=gha' || '' }}
           target: grpc
           platforms: ${{ matrix.platforms }}
           push: false
