@@ -92,6 +92,21 @@ jobs:
           platforms: ${{ matrix.platforms }}
           push: false
 
+      - name: Cache Requirements Extras
+        uses: docker/build-push-action@v5
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          # The build-args MUST be an EXACT match between the image cache and other workflow steps that want to use that cache.
+          # This means that even the MAKEFLAGS have to be an EXACT match.
+          # If the build-args are not an EXACT match, it will result in a cache miss, which will require GRPC to be built from scratch.
+          context: .
+          file: ./Dockerfile
+          cache-to: type=gha,ignore-error=true
+          cache-from: type=gha
+          target: requirements-base
+          platforms: ${{ matrix.platforms }}
+          push: false
+
       - name: Cache GRPC
         uses: docker/build-push-action@v5
         with:
