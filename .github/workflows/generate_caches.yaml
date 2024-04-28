@@ -4,9 +4,6 @@ on:
   # While the cache will build on every push to master, this will only rebuild the cache if something about the Dockerfile has changed.
   # The workflow_dispatch and schedule triggers will recreate the cache no matter what, and this allows us to keep our packages/dependencies up to date.
   workflow_dispatch:
-  schedule:
-    # Every 2 weeks
-    - cron: "30 4 1,15 * *"
   push:
     branches:
       - master
@@ -79,6 +76,29 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v4
+      
+      - name: Drop Buildkit Caches
+        # If this workflow is being run manually, or by the schedule, we want all new caches to ensure we get OS updates on a regular basis
+        if: github.event_name != 'push'
+        run: |
+          gh extension install actions/gh-actions-cache
+          
+          REPO=${{ github.repository }}
+          BRANCH=refs/pull/${{ github.event.pull_request.number }}/merge
+
+          echo "Fetching list of cache key"
+          cacheKeysForPR=$(gh actions-cache list -R $REPO -B $BRANCH | cut -f 1 | grep buildkit )
+
+          ## Setting this to not fail the workflow while deleting cache keys. 
+          set +e
+          echo "Deleting caches..."
+          for cacheKey in $cacheKeysForPR
+          do
+              gh actions-cache delete $cacheKey -R $REPO -B $BRANCH --confirm
+          done
+          echo "Done"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Cache Requirements Core
         uses: docker/build-push-action@v5
@@ -92,7 +112,7 @@ jobs:
           context: .
           file: ./Dockerfile
           cache-to: type=gha,ignore-error=true
-          cache-from: ${{ github.event_name == 'push' && 'type=gha' || '' }}
+          cache-from: type=gha
           target: requirements-core
           platforms: ${{ matrix.platforms }}
           push: false
@@ -107,7 +127,7 @@ jobs:
           context: .
           file: ./Dockerfile
           cache-to: type=gha,ignore-error=true
-          cache-from: ${{ github.event_name == 'push' && 'type=gha' || '' }}
+          cache-from: type=gha
           target: requirements-extras
           platforms: ${{ matrix.platforms }}
           push: false
@@ -126,7 +146,7 @@ jobs:
           context: .
           file: ./Dockerfile
           cache-to: type=gha,ignore-error=true
-          cache-from: ${{ github.event_name == 'push' && 'type=gha' || '' }}
+          cache-from: type=gha
           target: grpc
           platforms: ${{ matrix.platforms }}
           push: false
